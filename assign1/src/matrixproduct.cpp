@@ -10,28 +10,6 @@ using namespace std;
 #define SYSTEMTIME clock_t
 
 
-// Medição do tempo 
-
-void handle_error(int retval) {
-    printf("PAPI error %d: %s\n", retval, PAPI_strerror(retval));
-    exit(1);
-}
-
-void init_papi() {
-    int retval = PAPI_library_init(PAPI_VER_CURRENT);
-    if (retval != PAPI_VER_CURRENT && retval < 0) {
-        printf("PAPI library version mismatch!\n");
-        exit(1);
-    }
-    if (retval < 0) handle_error(retval);
-    
-    cout << "PAPI Version: " << PAPI_VERSION_MAJOR(retval) << "." << PAPI_VERSION_MINOR(retval) << "." << PAPI_VERSION_REVISION(retval) << endl;
-}
-
-
-
-
-
 void OnMult(int m_ar, int m_br) 
 {
 	
@@ -43,7 +21,6 @@ void OnMult(int m_ar, int m_br)
 
 	double *pha, *phb, *phc;
 	
-
 		
     pha = (double *)malloc((m_ar * m_ar) * sizeof(double));
 	phb = (double *)malloc((m_ar * m_ar) * sizeof(double));
