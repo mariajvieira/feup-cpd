@@ -56,7 +56,6 @@ void OnMult(int m_ar, int m_br)
 	sprintf(st, "Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);
 	cout << st;
 
-	// display 10 elements of the result matrix to verify correctness
 	cout << "Result matrix: " << endl;
 	for(i=0; i<1; i++)
 	{	for(j=0; j<min(10,m_br); j++)
@@ -107,6 +106,14 @@ void OnMultLine(int m_ar, int m_br)
         }
     }
 
+    cout << "Result matrix (Line Multiplication): " << endl;
+    for (i = 0; i < 1; i++) {
+        for (j = 0; j < min(10, m_br); j++) {
+            cout << matrixC[i][j] << " ";
+        }
+    }
+    cout << endl;
+    
     // Free allocated memory
     for (i = 0; i < m_ar; i++) {
         delete[] matrixA[i];
@@ -160,6 +167,13 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
             }
         }
     }
+    cout << "Result matrix (Block Multiplication): " << endl;
+    for (i = 0; i < 1; i++) {
+        for (j = 0; j < min(10, m_br); j++) {
+            cout << matrixC[i][j] << " ";
+        }
+    }
+    cout << endl;
 
     // Free allocated memory
     for (i = 0; i < m_ar; i++) {
