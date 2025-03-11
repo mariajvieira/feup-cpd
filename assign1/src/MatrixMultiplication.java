@@ -2,6 +2,14 @@ import java.util.Scanner;
 import java.util.Random;
 
 public class MatrixMultiplication {
+
+    static {
+        System.loadLibrary("papi_wrapper"); // Carrega a biblioteca nativa
+    }
+
+    // Declaração dos métodos nativos do PAPI
+    public native void startPAPI();
+    public native long[] stopPAPI();
     
     public static void onMult(int size) {
         double[][] matrixA = new double[size][size];
@@ -16,6 +24,7 @@ public class MatrixMultiplication {
             }
         }
         
+        startPAPI();
         long startTime = System.nanoTime();
         
         // Multiplicação de matrizes
@@ -31,6 +40,7 @@ public class MatrixMultiplication {
         
         long endTime = System.nanoTime();
         System.out.printf("Time: %.3f seconds\n", (endTime - startTime) / 1e9);
+        long[] papiResults = stopPAPI();
         
         // Exibir os primeiros 10 elementos da matriz resultado
         System.out.print("Result matrix: ");
