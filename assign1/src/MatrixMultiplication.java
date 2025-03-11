@@ -3,19 +3,11 @@ import java.util.Random;
 
 public class MatrixMultiplication {
 
-    static {
-        System.loadLibrary("papi_wrapper"); // Carrega a biblioteca nativa
-    }
-
-    // Declaração dos métodos nativos do PAPI
-    public native void startPAPI();
-    public native long[] stopPAPI();
-    
     public static void onMult(int size) {
         double[][] matrixA = new double[size][size];
         double[][] matrixB = new double[size][size];
         double[][] matrixC = new double[size][size];
-        
+
         // Inicializar matrizes
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -23,10 +15,9 @@ public class MatrixMultiplication {
                 matrixB[i][j] = i + 1;
             }
         }
-        
-        startPAPI();
+
         long startTime = System.nanoTime();
-        
+
         // Multiplicação de matrizes
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -37,11 +28,10 @@ public class MatrixMultiplication {
                 matrixC[i][j] = temp;
             }
         }
-        
+
         long endTime = System.nanoTime();
         System.out.printf("Time: %.3f seconds\n", (endTime - startTime) / 1e9);
-        long[] papiResults = stopPAPI();
-        
+
         // Exibir os primeiros 10 elementos da matriz resultado
         System.out.print("Result matrix: ");
         for (int j = 0; j < Math.min(10, size); j++) {
@@ -49,13 +39,13 @@ public class MatrixMultiplication {
         }
         System.out.println();
     }
-    
+
     public static void onMultLine(int size) {
         Random rand = new Random();
         double[][] matrixA = new double[size][size];
         double[][] matrixB = new double[size][size];
         double[][] matrixC = new double[size][size];
-        
+
         // Inicializar matrizes
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -63,9 +53,9 @@ public class MatrixMultiplication {
                 matrixB[i][j] = rand.nextInt(10);
             }
         }
-        
+
         long startTime = System.nanoTime();
-        
+
         // Multiplicação linha a linha
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -75,10 +65,10 @@ public class MatrixMultiplication {
                 }
             }
         }
-        
+
         long endTime = System.nanoTime();
         System.out.printf("Time: %.3f seconds\n", (endTime - startTime) / 1e9);
-        
+
         // Exibir os primeiros 10 elementos da matriz resultado
         System.out.print("Result matrix: ");
         for (int j = 0; j < Math.min(10, size); j++) {
@@ -92,7 +82,7 @@ public class MatrixMultiplication {
         double[][] matrixA = new double[size][size];
         double[][] matrixB = new double[size][size];
         double[][] matrixC = new double[size][size];
-        
+
         // Inicializar matrizes
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
@@ -100,9 +90,9 @@ public class MatrixMultiplication {
                 matrixB[i][j] = rand.nextInt(10);
             }
         }
-        
+
         long startTime = System.nanoTime();
-        
+
         // Multiplicação por blocos
         for (int ii = 0; ii < size; ii += blockSize) {
             for (int jj = 0; jj < size; jj += blockSize) {
@@ -117,10 +107,10 @@ public class MatrixMultiplication {
                 }
             }
         }
-        
+
         long endTime = System.nanoTime();
         System.out.printf("Time: %.3f seconds\n", (endTime - startTime) / 1e9);
-        
+
         // Exibir os primeiros 10 elementos da matriz resultado
         System.out.print("Result matrix: ");
         for (int j = 0; j < Math.min(10, size); j++) {
@@ -128,23 +118,23 @@ public class MatrixMultiplication {
         }
         System.out.println();
     }
-    
+
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         int option, size, blockSize;
-        
+
         do {
             System.out.println("\n1. Multiplication");
             System.out.println("2. Line Multiplication");
             System.out.println("3. Block Multiplication");
             System.out.print("Selection?: ");
             option = scanner.nextInt();
-            
+
             if (option == 0) break;
-            
+
             System.out.print("Dimensions (n x n): ");
             size = scanner.nextInt();
-            
+
             switch (option) {
                 case 1:
                     onMult(size);
@@ -160,10 +150,9 @@ public class MatrixMultiplication {
                 default:
                     System.out.println("Invalid option.");
             }
-            
+
         } while (option != 0);
-        
+
         scanner.close();
     }
 }
-
