@@ -73,6 +73,9 @@ void OnMult(int m_ar, int m_br)
 // add code here for line x line matriz multiplication
 void OnMultLine(int m_ar, int m_br)
 {
+    SYSTEMTIME Time1, Time2;
+    Time1 = clock();
+
     int i, j, k;
     double **matrixA, **matrixB, **matrixC;
 
@@ -106,6 +109,9 @@ void OnMultLine(int m_ar, int m_br)
         }
     }
 
+    Time2 = clock(); // Fim da medição
+    printf("Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);
+
     cout << "Result matrix (Line Multiplication): " << endl;
     for (i = 0; i < 1; i++) {
         for (j = 0; j < min(10, m_br); j++) {
@@ -130,6 +136,10 @@ void OnMultLine(int m_ar, int m_br)
 // add code here for block x block matriz multiplication
 void OnMultBlock(int m_ar, int m_br, int bkSize)
 {
+
+    SYSTEMTIME Time1, Time2;
+    Time1 = clock();
+
     int i, j, k, ii, jj, kk;
     double **matrixA, **matrixB, **matrixC;
 
@@ -167,6 +177,10 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
             }
         }
     }
+
+    Time2 = clock(); // Fim da medição
+    printf("Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);
+    
     cout << "Result matrix (Block Multiplication): " << endl;
     for (i = 0; i < 1; i++) {
         for (j = 0; j < min(10, m_br); j++) {
