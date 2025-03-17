@@ -140,9 +140,9 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
 	int i, j, k;
 
 	double *pha, *phb, *phc;
-	
+	int ii, jj, kk;
 
-
+		
     pha = (double *)malloc((m_ar * m_ar) * sizeof(double));
 	phb = (double *)malloc((m_ar * m_ar) * sizeof(double));
 	phc = (double *)malloc((m_ar * m_ar) * sizeof(double));
@@ -157,21 +157,30 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
 		for(j=0; j<m_br; j++)
 			phb[i*m_br + j] = (double)(i+1);
 
+	for(i = 0; i < m_ar; i++)
+		for(j = 0; j < m_br; j++)
+			phc[i * m_br + j] = 0.0;
 
 
     Time1 = clock();
 
-	for(i=0; i<m_ar; i++)
-	{	for( j=0; j<m_br; j++)
-		{	temp = 0;
-			for( k=0; k<m_ar; k++)
-			{	
-				temp += pha[i*m_ar+k] * phb[k*m_br+j];
+	for (ii = 0; ii < m_ar; ii += bkSize) {       // Iterate over A and C rows in blocks
+		for (kk = 0; kk < m_ar; kk += bkSize) {   // Iterate over A columns and B rows in blocks
+			for (jj = 0; jj < m_ar; jj += bkSize) { // Iterate over B columns and C columns in blocks
+				
+				for (i = ii; i < min(ii + bkSize, m_ar); i++) {
+					for (k = kk; k < min(kk + bkSize, m_ar); k++) {
+						
+						double temp = pha[i * m_ar + k]; // Store A value to reduce memory access
+						
+						for (j = jj; j < min(jj + bkSize, m_br); j++) {
+							phc[i * m_ar + j] += temp * phb[k * m_br + j]; // block multiplication
+						}
+					}
+				}
 			}
-			phc[i*m_ar+j]=temp;
 		}
 	}
-
 
     Time2 = clock();
 	sprintf(st, "Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);

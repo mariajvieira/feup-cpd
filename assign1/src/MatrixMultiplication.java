@@ -41,27 +41,26 @@ public class MatrixMultiplication {
     }
 
     public static void onMultLine(int size) {
-        Random rand = new Random();
         double[][] matrixA = new double[size][size];
         double[][] matrixB = new double[size][size];
         double[][] matrixC = new double[size][size];
 
-        // Inicializar matrizes
+        // Initialize matrices
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
-                matrixA[i][j] = rand.nextInt(10);
-                matrixB[i][j] = rand.nextInt(10);
+                matrixA[i][j] = 1.0;
+                matrixB[i][j] = i + 1;
             }
         }
 
         long startTime = System.nanoTime();
 
-        // Multiplicação linha a linha
+        // Line-by-line matrix multiplication
         for (int i = 0; i < size; i++) {
-            for (int j = 0; j < size; j++) {
-                matrixC[i][j] = 0;
-                for (int k = 0; k < size; k++) {
-                    matrixC[i][j] += matrixA[i][k] * matrixB[k][j];
+            for (int k = 0; k < size; k++) {
+                double temp = matrixA[i][k]; // Store row value to reduce memory access
+                for (int j = 0; j < size; j++) {
+                    matrixC[i][j] += temp * matrixB[k][j];
                 }
             }
         }
@@ -69,7 +68,7 @@ public class MatrixMultiplication {
         long endTime = System.nanoTime();
         System.out.printf("Time: %.3f seconds\n", (endTime - startTime) / 1e9);
 
-        // Exibir os primeiros 10 elementos da matriz resultado
+        // Display first 10 elements of the result matrix
         System.out.print("Result matrix: ");
         for (int j = 0; j < Math.min(10, size); j++) {
             System.out.print(matrixC[0][j] + " ");
@@ -77,30 +76,33 @@ public class MatrixMultiplication {
         System.out.println();
     }
 
-    public static void onMultBlock(int size, int blockSize) {
-        Random rand = new Random();
-        double[][] matrixA = new double[size][size];
-        double[][] matrixB = new double[size][size];
-        double[][] matrixC = new double[size][size];
+    public static void onMultBlock(int size, int bkSize) {
+        double[] matrixA = new double[size * size];
+        double[] matrixB = new double[size * size];
+        double[] matrixC = new double[size * size];
 
-        // Inicializar matrizes
+        // Initialize matrices
         for (int i = 0; i < size; i++) {
             for (int j = 0; j < size; j++) {
-                matrixA[i][j] = rand.nextInt(10);
-                matrixB[i][j] = rand.nextInt(10);
+                matrixA[i * size + j] = 1.0;
+                matrixB[i * size + j] = i + 1;
+                matrixC[i * size + j] = 0.0;
             }
         }
 
         long startTime = System.nanoTime();
 
-        // Multiplicação por blocos
-        for (int ii = 0; ii < size; ii += blockSize) {
-            for (int jj = 0; jj < size; jj += blockSize) {
-                for (int kk = 0; kk < size; kk += blockSize) {
-                    for (int i = ii; i < ii + blockSize && i < size; i++) {
-                        for (int j = jj; j < jj + blockSize && j < size; j++) {
-                            for (int k = kk; k < kk + blockSize && k < size; k++) {
-                                matrixC[i][j] += matrixA[i][k] * matrixB[k][j];
+        // Blocked matrix multiplication
+        for (int ii = 0; ii < size; ii += bkSize) {
+            for (int kk = 0; kk < size; kk += bkSize) {
+                for (int jj = 0; jj < size; jj += bkSize) {
+
+                    for (int i = ii; i < Math.min(ii + bkSize, size); i++) {
+                        for (int k = kk; k < Math.min(kk + bkSize, size); k++) {
+                            double temp = matrixA[i * size + k]; // Store A value to reduce memory access
+
+                            for (int j = jj; j < Math.min(jj + bkSize, size); j++) {
+                                matrixC[i * size + j] += temp * matrixB[k * size + j];
                             }
                         }
                     }
@@ -111,13 +113,14 @@ public class MatrixMultiplication {
         long endTime = System.nanoTime();
         System.out.printf("Time: %.3f seconds\n", (endTime - startTime) / 1e9);
 
-        // Exibir os primeiros 10 elementos da matriz resultado
+        // Display first 10 elements of the result matrix
         System.out.print("Result matrix: ");
         for (int j = 0; j < Math.min(10, size); j++) {
-            System.out.print(matrixC[0][j] + " ");
+            System.out.print(matrixC[j] + " ");
         }
         System.out.println();
     }
+
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
