@@ -142,7 +142,7 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
 	double *pha, *phb, *phc;
 	
 
-		
+
     pha = (double *)malloc((m_ar * m_ar) * sizeof(double));
 	phb = (double *)malloc((m_ar * m_ar) * sizeof(double));
 	phc = (double *)malloc((m_ar * m_ar) * sizeof(double));
