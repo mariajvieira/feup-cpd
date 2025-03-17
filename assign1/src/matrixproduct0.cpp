@@ -9,7 +9,7 @@ using namespace std;
 
 #define SYSTEMTIME clock_t
 
- 
+
 void OnMult(int m_ar, int m_br) 
 {
 	
@@ -21,7 +21,6 @@ void OnMult(int m_ar, int m_br)
 
 	double *pha, *phb, *phc;
 	
-
 		
     pha = (double *)malloc((m_ar * m_ar) * sizeof(double));
 	phb = (double *)malloc((m_ar * m_ar) * sizeof(double));
@@ -57,7 +56,6 @@ void OnMult(int m_ar, int m_br)
 	sprintf(st, "Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);
 	cout << st;
 
-	// display 10 elements of the result matrix tto verify correctness
 	cout << "Result matrix: " << endl;
 	for(i=0; i<1; i++)
 	{	for(j=0; j<min(10,m_br); j++)
@@ -75,15 +73,133 @@ void OnMult(int m_ar, int m_br)
 // add code here for line x line matriz multiplication
 void OnMultLine(int m_ar, int m_br)
 {
+    SYSTEMTIME Time1, Time2;
+    Time1 = clock();
+
+    int i, j, k;
+    double **matrixA, **matrixB, **matrixC;
+
+    // Allocate memory for matrices
+    matrixA = new double*[m_ar];
+    matrixB = new double*[m_br];
+    matrixC = new double*[m_ar];
+    for (i = 0; i < m_ar; i++) {
+        matrixA[i] = new double[m_br];
+        matrixC[i] = new double[m_br];
+    }
+    for (i = 0; i < m_br; i++) {
+        matrixB[i] = new double[m_ar];
+    }
+
+    // Initialize matrices A and B with some values
+    for (i = 0; i < m_ar; i++) {
+        for (j = 0; j < m_br; j++) {
+            matrixA[i][j] = rand() % 10;
+            matrixB[i][j] = rand() % 10;
+        }
+    }
+
+    // Perform line-by-line matrix multiplication
+    for (i = 0; i < m_ar; i++) {
+        for (j = 0; j < m_br; j++) {
+            matrixC[i][j] = 0;
+            for (k = 0; k < m_br; k++) {
+                matrixC[i][j] += matrixA[i][k] * matrixB[k][j];
+            }
+        }
+    }
+
+    Time2 = clock(); // Fim da medição
+    printf("Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);
+
+    cout << "Result matrix (Line Multiplication): " << endl;
+    for (i = 0; i < 1; i++) {
+        for (j = 0; j < min(10, m_br); j++) {
+            cout << matrixC[i][j] << " ";
+        }
+    }
+    cout << endl;
     
-    
+    // Free allocated memory
+    for (i = 0; i < m_ar; i++) {
+        delete[] matrixA[i];
+        delete[] matrixC[i];
+    }
+    for (i = 0; i < m_br; i++) {
+        delete[] matrixB[i];
+    }
+    delete[] matrixA;
+    delete[] matrixB;
+    delete[] matrixC;
 }
 
 // add code here for block x block matriz multiplication
 void OnMultBlock(int m_ar, int m_br, int bkSize)
 {
+
+    SYSTEMTIME Time1, Time2;
+    Time1 = clock();
+
+    int i, j, k, ii, jj, kk;
+    double **matrixA, **matrixB, **matrixC;
+
+    // Allocate memory for matrices
+    matrixA = new double*[m_ar];
+    matrixB = new double*[m_br];
+    matrixC = new double*[m_ar];
+    for (i = 0; i < m_ar; i++) {
+        matrixA[i] = new double[m_br];
+        matrixC[i] = new double[m_br];
+    }
+    for (i = 0; i < m_br; i++) {
+        matrixB[i] = new double[m_ar];
+    }
+
+    // Initialize matrices A and B with some values
+    for (i = 0; i < m_ar; i++) {
+        for (j = 0; j < m_br; j++) {
+            matrixA[i][j] = rand() % 10;
+            matrixB[i][j] = rand() % 10;
+        }
+    }
+
+    // Perform block-by-block matrix multiplication
+    for (ii = 0; ii < m_ar; ii += bkSize) {
+        for (jj = 0; jj < m_br; jj += bkSize) {
+            for (kk = 0; kk < m_br; kk += bkSize) {
+                for (i = ii; i < ii + bkSize && i < m_ar; i++) {
+                    for (j = jj; j < jj + bkSize && j < m_br; j++) {
+                        for (k = kk; k < kk + bkSize && k < m_br; k++) {
+                            matrixC[i][j] += matrixA[i][k] * matrixB[k][j];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Time2 = clock(); // Fim da medição
+    printf("Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);
     
-    
+    cout << "Result matrix (Block Multiplication): " << endl;
+    for (i = 0; i < 1; i++) {
+        for (j = 0; j < min(10, m_br); j++) {
+            cout << matrixC[i][j] << " ";
+        }
+    }
+    cout << endl;
+
+    // Free allocated memory
+    for (i = 0; i < m_ar; i++) {
+        delete[] matrixA[i];
+        delete[] matrixC[i];
+    }
+    for (i = 0; i < m_br; i++) {
+        delete[] matrixB[i];
+    }
+    delete[] matrixA;
+    delete[] matrixB;
+    delete[] matrixC;
 }
 
 
