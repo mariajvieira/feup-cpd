@@ -73,7 +73,6 @@ void OnMult(int m_ar, int m_br)
 	
 }
 
-// add code here for line x line matriz multiplication
 void OnMultLine(int m_ar, int m_br)
 {
     SYSTEMTIME Time1, Time2;
@@ -128,6 +127,8 @@ void OnMultLine(int m_ar, int m_br)
 	
     
 }
+
+// 1st version Parallel Line Multiplication
 void ParallelOnMultLine1(int m_ar, int m_br)
 {
     double Time1, Time2;
@@ -149,9 +150,9 @@ void ParallelOnMultLine1(int m_ar, int m_br)
         for(j = 0; j < m_br; j++)
             phb[i*m_br + j] = (double)(i+1);
 
-    Time1 = omp_get_wtime(); // Start measuring wall-clock time
+    Time1 = omp_get_wtime(); // Start time
 
-    #pragma omp parallel for private(i,j,k)
+    #pragma omp parallel for num_threads(4)
     for(i = 0; i < m_ar; i++)
     {
         for(k = 0; k < m_br; k++)
@@ -163,11 +164,10 @@ void ParallelOnMultLine1(int m_ar, int m_br)
         }
     }
 
-    Time2 = omp_get_wtime(); // End measuring wall-clock time
+    Time2 = omp_get_wtime(); // End time
     sprintf(st, "Time: %3.3f seconds\n", Time2 - Time1);
     cout << st;
 
-    // Display result matrix to verify correctness
     cout << "Result matrix: " << endl;
     for(i = 0; i < 1; i++)
     {
@@ -181,7 +181,7 @@ void ParallelOnMultLine1(int m_ar, int m_br)
     free(phc);
 }
 
-// Parallel Line Multiplication - 2 with more parallelization
+// 2nd version Parallel Line Multiplication 
 void ParallelOnMultLine2(int m_ar, int m_br)
 {
     double Time1, Time2;
@@ -203,9 +203,9 @@ void ParallelOnMultLine2(int m_ar, int m_br)
         for(j = 0; j < m_br; j++)
             phb[i*m_br + j] = (double)(i+1);
 
-    Time1 = omp_get_wtime(); // Start measuring wall-clock time
+    Time1 = omp_get_wtime(); // Start time
 
-    #pragma omp parallel private(i,j,k)
+    #pragma omp parallel num_threads(2)  // Testing for different number of threads
     for(i = 0; i < m_ar; i++)
     {
         for(k = 0; k < m_br; k++)
@@ -218,11 +218,10 @@ void ParallelOnMultLine2(int m_ar, int m_br)
         }
     }
 
-    Time2 = omp_get_wtime(); // End measuring wall-clock time
+    Time2 = omp_get_wtime(); // End time
     sprintf(st, "Time: %3.3f seconds\n", Time2 - Time1);
     cout << st;
 
-    // Display result matrix to verify correctness
     cout << "Result matrix: " << endl;
     for(i = 0; i < 1; i++)
     {
@@ -236,7 +235,6 @@ void ParallelOnMultLine2(int m_ar, int m_br)
     free(phc);
 }
 
-// add code here for block x block matriz multiplication
 void OnMultBlock(int m_ar, int m_br, int bkSize)
 {
     SYSTEMTIME Time1, Time2;
@@ -270,17 +268,17 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
 
     Time1 = clock();
 
-	for (ii = 0; ii < m_ar; ii += bkSize) {       // Iterate over A and C rows in blocks
-		for (kk = 0; kk < m_ar; kk += bkSize) {   // Iterate over A columns and B rows in blocks
-			for (jj = 0; jj < m_ar; jj += bkSize) { // Iterate over B columns and C columns in blocks
+	for (ii = 0; ii < m_ar; ii += bkSize) {     
+		for (kk = 0; kk < m_ar; kk += bkSize) {   
+			for (jj = 0; jj < m_ar; jj += bkSize) { 
 				
 				for (i = ii; i < min(ii + bkSize, m_ar); i++) {
 					for (k = kk; k < min(kk + bkSize, m_ar); k++) {
 						
-						double temp = pha[i * m_ar + k]; // Store A value to reduce memory access
+						double temp = pha[i * m_ar + k]; 
 						
 						for (j = jj; j < min(jj + bkSize, m_br); j++) {
-							phc[i * m_ar + j] += temp * phb[k * m_br + j]; // block multiplication
+							phc[i * m_ar + j] += temp * phb[k * m_br + j]; 
 						}
 					}
 				}
@@ -292,7 +290,6 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
 	sprintf(st, "Time: %3.3f seconds\n", (double)(Time2 - Time1) / CLOCKS_PER_SEC);
 	cout << st;
 
-	// display 10 elements of the result matrix tto verify correctness
 	cout << "Result matrix: " << endl;
 	for(i=0; i<1; i++)
 	{	for(j=0; j<min(10,m_br); j++)
@@ -306,7 +303,6 @@ void OnMultBlock(int m_ar, int m_br, int bkSize)
 	
     
 }
-
 
 
 void handle_error (int retval)
