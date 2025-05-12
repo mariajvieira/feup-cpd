@@ -14,7 +14,7 @@ public class Server {
 
         int port = Integer.parseInt(args[0]);
         DatagramSocket socket = new DatagramSocket(port);
-        System.out.println("Servidor UDP iniciado na porta " + port);
+        System.out.println("UDP Server started in port " + port);
 
         byte[] buffer = new byte[BUFFER_SIZE];
         while (true) {
@@ -45,10 +45,10 @@ public class Server {
             return null; 
         } else if (operation.equals("get")) {
             List<Float> values = sensorData.get(sensorId);
-            if (values == null || values.isEmpty()) return "Sensor " + sensorId + " sem dados.";
+            if (values == null || values.isEmpty()) return "Sensor " + sensorId + " without data.";
             float average = (float) values.stream().mapToDouble(Float::doubleValue).average().orElse(0.0);
-            return "Sensor " + sensorId + " média: " + average;
+            return "Sensor " + sensorId + " average: " + average;
         }
-        return "Comando inválido.";
+        return "Invalid command.";
     }
 }

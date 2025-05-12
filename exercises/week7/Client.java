@@ -6,7 +6,7 @@ import java.util.*;
 class Client {
     public static void main(String[] args) throws IOException, InterruptedException {
         if (args.length < 4) {
-            System.out.println("Uso: java Client <addr> <port> <op> <id> [<val>]");
+            System.out.println("Use: java Client <addr> <port> <op> <id> [<val>]");
             return;
         }
 
@@ -27,7 +27,7 @@ class Client {
             sendUDPMessage(socket, serverIP, port, message);
             receiveResponse(socket);
         } else {
-            System.out.println("Operação inválida.");
+            System.out.println("Invalid operation.");
         }
         socket.close();
     }
