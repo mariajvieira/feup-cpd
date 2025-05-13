@@ -41,7 +41,7 @@ public class ChatServer {
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
         ) {
-            out.println("Welcome! Send your token to reconnect, or type your username to authenticate:");
+            out.println("Welcome! Type your username to authenticate:");
             String line = in.readLine();
             if (line == null) return;
 
@@ -53,7 +53,8 @@ public class ChatServer {
                 sessionsLock.unlock();
             }
             if (session != null) {
-                out.println("Reconnected as " + session.username);
+                out.println("Reconnected as " + session.username
+                            + " in room: " + session.roomName);
                 roomsLock.lock();
                 try {
                     ChatRoom room = rooms.get(session.roomName);
