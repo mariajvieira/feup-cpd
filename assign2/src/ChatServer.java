@@ -3,6 +3,7 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.locks.*;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class ChatServer {
 
@@ -51,8 +52,6 @@ public class ChatServer {
             } finally {
                 sessionsLock.unlock();
             }
-
-            // Reconnect path
             if (session != null) {
                 out.println("Reconnected as " + session.username);
                 roomsLock.lock();
@@ -67,7 +66,6 @@ public class ChatServer {
                     roomsLock.unlock();
                 }
             } else {
-                // First‐time auth
                 String username = line.trim();
                 if (!authenticate(username)) {
                     out.println("Authentication failed.");
@@ -95,7 +93,6 @@ public class ChatServer {
                 joinRoom(roomName, session.username, out);
             }
 
-            // Message loop
             String message;
             while ((message = in.readLine()) != null) {
                 if (message.isBlank()) continue;
@@ -108,7 +105,7 @@ public class ChatServer {
                     if (newRoom.isEmpty()) {
                         out.println("Usage: /join <roomName>");
                     } else {
-                        // leave old room
+                        // leave room
                         ChatRoom old = rooms.get(session.roomName);
                         if (old != null) {
                             old.broadcast(">> " + session.username + " has left " + session.roomName);
@@ -131,7 +128,6 @@ public class ChatServer {
                     }
                 }
                 else if (message.equalsIgnoreCase("exit")) {
-                    // fully disconnect
                     ChatRoom room = rooms.get(session.roomName);
                     if (room != null) {
                         room.broadcast(">> " + session.username + " has disconnected.");
@@ -140,7 +136,6 @@ public class ChatServer {
                     break;
                 }
                 else {
-                    // normal chat
                     ChatRoom room = rooms.get(session.roomName);
                     if (room != null) {
                         room.broadcast(session.username + ": " + message);
@@ -171,12 +166,17 @@ public class ChatServer {
         roomsLock.lock();
         try {
             ChatRoom room = rooms.get(roomName);
+            boolean isAi = roomName.startsWith("AI ");
+            String prompt = isAi
+                ? roomName.substring(3).trim()
+                : null;
+
             if (room == null) {
-                room = new ChatRoom(roomName);
+                room = new ChatRoom(roomName, isAi, prompt);
                 rooms.put(roomName, room);
             }
             room.addClient(new ClientHandler(clientId, out));
-            room.broadcast(">> " + clientId + " joined the room.");
+            room.broadcast(">> " + clientId + " joined the room ' " + roomName + " '.");
             return room;
         } finally {
             roomsLock.unlock();
@@ -195,38 +195,74 @@ public class ChatServer {
     }
 
     private static class ChatRoom {
-        private final String name;
-        private final List<ClientHandler> clients = new ArrayList<>();
-        private final Lock clientsLock = new ReentrantLock();
+        final String name;
+        final boolean isAiRoom;
+        final String prompt;
+        final List<String> history = new ArrayList<>();
+        final Lock clientsLock = new ReentrantLock();
+        final List<ClientHandler> clients = new ArrayList<>();
 
-        ChatRoom(String name) {
+        ChatRoom(String name, boolean isAiRoom, String prompt) {
             this.name = name;
+            this.isAiRoom = isAiRoom;
+            this.prompt = prompt;
         }
 
-        void addClient(ClientHandler client) {
+        void addClient(ClientHandler c) {
             clientsLock.lock();
             try {
-                clients.add(client);
+                clients.add(c);
             } finally {
                 clientsLock.unlock();
             }
         }
 
-        void removeClient(String clientId) {
+        void removeClient(String id) {
             clientsLock.lock();
             try {
-                clients.removeIf(c -> c.clientId.equals(clientId));
+                clients.removeIf(c -> c.clientId.equals(id));
             } finally {
                 clientsLock.unlock();
             }
         }
 
-        void broadcast(String message) {
+        void broadcast(String msg) {
+            // guarda no histórico
+            synchronized(history) {
+                history.add(msg);
+            }
+            // envia a todos
             clientsLock.lock();
             try {
-                for (ClientHandler c : clients) c.send(message);
+                for (ClientHandler c : clients) c.send(msg);
             } finally {
                 clientsLock.unlock();
+            }
+            // se for AI room e mensagem de user, gera resposta
+            if (isAiRoom && !msg.startsWith("Bot:")) {
+                String aiReply = callAiModel();
+                broadcast("Bot: " + aiReply);
+            }
+        }
+
+        private String callAiModel() {
+            StringBuilder sb = new StringBuilder();
+            if (prompt != null) sb.append(prompt).append("\n");
+            synchronized(history) {
+                for (String m : history) sb.append(m).append("\n");
+            }
+            try {
+                ProcessBuilder pb = new ProcessBuilder(
+                    "ollama","run","<seu-modelo>","--prompt", sb.toString()
+                );
+                pb.redirectErrorStream(true);
+                Process p = pb.start();
+                try (BufferedReader r = new BufferedReader(
+                         new InputStreamReader(p.getInputStream()))) {
+                    return r.lines().collect(Collectors.joining(" "));
+                }
+            } catch (IOException e) {
+                return "[erro ao chamar LLM]";
             }
         }
     }
