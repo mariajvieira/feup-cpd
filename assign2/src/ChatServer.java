@@ -3,7 +3,6 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.locks.*;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 public class ChatServer {
 
@@ -28,7 +27,7 @@ public class ChatServer {
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                Thread.ofVirtual().start(() -> handleClient(clientSocket));
+                new Thread(() -> handleClient(clientSocket)).start();
             }
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -41,11 +40,11 @@ public class ChatServer {
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
         ) {
-            out.println("Welcome! Type your username to authenticate:");
+            out.println("Welcome! Send your token to reconnect, or type your username to authenticate:");
             String line = in.readLine();
             if (line == null) return;
 
-            UserSession session = null;
+            UserSession session;
             sessionsLock.lock();
             try {
                 session = sessions.get(line.trim());
@@ -53,8 +52,7 @@ public class ChatServer {
                 sessionsLock.unlock();
             }
             if (session != null) {
-                out.println("Reconnected as " + session.username
-                            + " in room: " + session.roomName);
+                out.println("Reconnected as " + session.username);
                 roomsLock.lock();
                 try {
                     ChatRoom room = rooms.get(session.roomName);
@@ -106,18 +104,16 @@ public class ChatServer {
                     if (newRoom.isEmpty()) {
                         out.println("Usage: /join <roomName>");
                     } else {
-                        // leave room
                         ChatRoom old = rooms.get(session.roomName);
                         if (old != null) {
                             old.broadcast(">> " + session.username + " has left " + session.roomName);
                             old.removeClient(session.username);
                         }
-                        // join new
                         session.roomName = newRoom;
                         joinRoom(newRoom, session.username, out);
                     }
                 }
-                else if (message.toLowerCase().startsWith("/leave")) {
+                else if (message.equalsIgnoreCase("/leave")) {
                     ChatRoom curr = rooms.get(session.roomName);
                     if (curr != null) {
                         curr.broadcast(">> " + session.username + " has left " + session.roomName);
@@ -139,7 +135,13 @@ public class ChatServer {
                 else {
                     ChatRoom room = rooms.get(session.roomName);
                     if (room != null) {
-                        room.broadcast(session.username + ": " + message);
+                        String userLine = session.username + ": " + message;
+                        room.broadcast(userLine);
+
+                        if (room.isAiRoom) {
+                            String aiResponse = callLLM(message, room.history);
+                            room.broadcast("Bot: " + aiResponse);
+                        }
                     } else {
                         out.println("You are not in a room. Use /join <room> first.");
                     }
@@ -168,19 +170,49 @@ public class ChatServer {
         try {
             ChatRoom room = rooms.get(roomName);
             boolean isAi = roomName.startsWith("AI ");
-            String prompt = isAi
-                ? roomName.substring(3).trim()
-                : null;
+            String prompt = isAi ? roomName.substring(3).trim() : null;
 
             if (room == null) {
                 room = new ChatRoom(roomName, isAi, prompt);
                 rooms.put(roomName, room);
             }
             room.addClient(new ClientHandler(clientId, out));
-            room.broadcast(">> " + clientId + " joined the room ' " + roomName + " '.");
+            room.broadcast(">> " + clientId + " joined the room '" + roomName + "'.");
             return room;
         } finally {
             roomsLock.unlock();
+        }
+    }
+
+    private String callLLM(String userMessage, List<String> history) {
+        try {
+            ProcessBuilder builder = new ProcessBuilder("ollama", "run", "llama2");
+            Process process = builder.start();
+
+            try (
+                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))
+            ) {
+                // Enviar o histórico
+                for (String line : history) {
+                    writer.write(line + "\n");
+                }
+                // Adicionar nova mensagem e deixar IA continuar
+                writer.write("User: " + userMessage + "\n");
+                writer.flush();
+                process.getOutputStream().close();
+
+                // Ler resposta
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    response.append(line).append("\n");
+                }
+                return response.toString().trim();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return "[Error talking to AI]";
         }
     }
 
@@ -228,42 +260,16 @@ public class ChatServer {
         }
 
         void broadcast(String msg) {
-            // guarda no histórico
-            synchronized(history) {
+            synchronized (history) {
                 history.add(msg);
             }
-            // envia a todos
             clientsLock.lock();
             try {
-                for (ClientHandler c : clients) c.send(msg);
+                for (ClientHandler c : clients) {
+                    c.send(msg);
+                }
             } finally {
                 clientsLock.unlock();
-            }
-            // se for AI room e mensagem de user, gera resposta
-            if (isAiRoom && !msg.startsWith("Bot:")) {
-                String aiReply = callAiModel();
-                broadcast("Bot: " + aiReply);
-            }
-        }
-
-        private String callAiModel() {
-            StringBuilder sb = new StringBuilder();
-            if (prompt != null) sb.append(prompt).append("\n");
-            synchronized(history) {
-                for (String m : history) sb.append(m).append("\n");
-            }
-            try {
-                ProcessBuilder pb = new ProcessBuilder(
-                    "ollama","run","<seu-modelo>","--prompt", sb.toString()
-                );
-                pb.redirectErrorStream(true);
-                Process p = pb.start();
-                try (BufferedReader r = new BufferedReader(
-                         new InputStreamReader(p.getInputStream()))) {
-                    return r.lines().collect(Collectors.joining(" "));
-                }
-            } catch (IOException e) {
-                return "[erro ao chamar LLM]";
             }
         }
     }
