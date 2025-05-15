@@ -2,7 +2,6 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.locks.*;
-import java.util.UUID;
 
 public class ChatServer {
 
@@ -27,7 +26,7 @@ public class ChatServer {
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                new Thread(() -> handleClient(clientSocket)).start();
+                Thread.startVirtualThread(() -> handleClient(clientSocket));
             }
         } catch (IOException ex) {
             ex.printStackTrace();
@@ -40,7 +39,7 @@ public class ChatServer {
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
         ) {
-            out.println("Welcome! Send your token to reconnect, or type your username to authenticate:");
+            out.println("Welcome! Type your username to authenticate:");
             String line = in.readLine();
             if (line == null) return;
 
@@ -52,14 +51,15 @@ public class ChatServer {
                 sessionsLock.unlock();
             }
             if (session != null) {
-                out.println("Reconnected as " + session.username);
+                
                 roomsLock.lock();
                 try {
                     ChatRoom room = rooms.get(session.roomName);
                     if (room != null) {
                         room.removeClient(session.username);
                         room.addClient(new ClientHandler(session.username, out));
-                        room.broadcast(">> " + session.username + " reconnected.");
+                        out.println("Reconnected as " + session.username
+                            + " in room: " + session.roomName);
                     }
                 } finally {
                     roomsLock.unlock();
