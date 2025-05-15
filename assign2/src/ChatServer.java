@@ -7,9 +7,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.Iterator;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 public class ChatServer {
     private static final Duration SESSION_TTL = Duration.ofMinutes(15);
+    private static final File USER_FILE = new File("users.txt");
 
     private final Map<String, UserSession> sessions = new HashMap<>();
     private final Lock sessionsLock = new ReentrantLock();
@@ -17,11 +21,15 @@ public class ChatServer {
     private final Map<String, ChatRoom> rooms = new HashMap<>();
     private final Lock roomsLock = new ReentrantLock();
 
+    private final Map<String, String> userCredentials = new HashMap<>();
+    private final Lock usersLock = new ReentrantLock();
+
     public ChatServer() {
+        loadUserFile();
         Thread.startVirtualThread(() -> {
             try {
                 while (true) {
-                    Thread.sleep(Duration.ofMinutes(2).toMillis());
+                    Thread.sleep(Duration.ofMinutes(1).toMillis());
                     purgeExpiredSessions();
                 }
             } catch (InterruptedException ignored) { }
@@ -50,64 +58,124 @@ public class ChatServer {
         }
     }
 
+    private void loadUserFile() {
+        try {
+            if (!USER_FILE.exists()) USER_FILE.createNewFile();
+            try (BufferedReader r = new BufferedReader(new FileReader(USER_FILE))) {
+                String line;
+                while ((line = r.readLine()) != null) {
+                    String[] p = line.split(":", 2);
+                    if (p.length == 2) userCredentials.put(p[0], p[1]);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void saveUser(String user, String pass) {
+        usersLock.lock();
+        try (PrintWriter w = new PrintWriter(new FileWriter(USER_FILE, true))) {
+            userCredentials.put(user, pass);
+            w.println(user + ":" + pass);
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            usersLock.unlock();
+        }
+        loadUserFile();
+    }
+
+    private boolean checkCredentials(String user, String pass) {
+        usersLock.lock();
+        try {
+            return pass.equals(userCredentials.get(user));
+        } finally {
+            usersLock.unlock();
+        }
+    }
+
     private void handleClient(Socket clientSocket) {
         try (
             clientSocket;
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
         ) {
-            out.println("Welcome! Type your username to authenticate:");
-            String line = in.readLine();
-            if (line == null) return;
+            out.println("Welcome to the chat server!");
+            out.println("1-Login 2-Register:");
 
-            UserSession session;
+            String firstLine = in.readLine();
+            if (firstLine == null) return;
+
+            UserSession session = null;
             sessionsLock.lock();
             try {
-                session = sessions.get(line.trim());
-                if (session != null) session.touch();
+                UserSession s = sessions.get(firstLine.trim());
+                if (s != null
+                    && Duration.between(s.lastAccess, Instant.now()).compareTo(SESSION_TTL) <= 0) {
+                    s.touch();
+                    session = s;
+                } else {
+                    sessions.remove(firstLine.trim());
+                }
             } finally {
                 sessionsLock.unlock();
             }
+
+            String username, password;
             if (session != null) {
-                
-                roomsLock.lock();
-                try {
-                    ChatRoom room = rooms.get(session.roomName);
-                    if (room != null) {
-                        room.removeClient(session.username);
-                        room.addClient(new ClientHandler(session.username, out));
-                        out.println("Reconnected as " + session.username
-                            + " in room: " + session.roomName);
-                    }
-                } finally {
-                    roomsLock.unlock();
-                }
+                out.println("Reconnected in room: " + session.roomName);
+                joinRoom(session.roomName, session.username, out);
+
             } else {
-                String username = line.trim();
-                if (!authenticate(username)) {
+                String option = firstLine.trim();
+                if (!option.equals("1") && !option.equals("2")) {
+                    out.println("1-Login  2-Register:");
+                    option = in.readLine();
+                    if (option == null) return;
+                }
+
+                if (option.equals("2")) {
+                    out.println("Choose username:");
+                    username = in.readLine();
+                    out.println("Choose password:");
+                    password = in.readLine();
+                    if (username == null || password == null
+                        || userCredentials.containsKey(username.trim())) {
+                        out.println("Registration failed.");
+                        return;
+                    }
+                    saveUser(username.trim(), password.trim());
+                    out.println("Registration successful.");
+                    out.println("Login");
+                }
+
+                out.println("Username:");
+                username = in.readLine();
+                out.println("Password:");
+                password = in.readLine();
+                if (username == null || password == null
+                    || !checkCredentials(username.trim(), password.trim())) {
                     out.println("Authentication failed.");
                     return;
                 }
+
                 String token = UUID.randomUUID().toString();
-                session = new UserSession(token, username);
-
+                session = new UserSession(token, username.trim());
                 sessionsLock.lock();
-                try {
-                    sessions.put(token, session);
-                } finally {
-                    sessionsLock.unlock();
-                }
-
+                try { sessions.put(token, session); }
+                finally    { sessionsLock.unlock(); }
                 out.println("Authentication successful. Your token: " + token);
+
                 out.println("Available rooms: " + getRoomList());
-                out.println("Enter the room name to join or create:");
+                out.println("Enter room name to join or create:");
                 String roomName = in.readLine();
                 if (roomName == null || roomName.isBlank()) {
-                    out.println("Invalid room name. Disconnecting.");
+                    out.println("Invalid room. Disconnecting.");
                     return;
                 }
-                session.roomName = roomName;
-                joinRoom(roomName, session.username, out);
+                session.roomName = roomName.trim();
+                joinRoom(session.roomName, session.username, out);
             }
 
             String message;
@@ -211,16 +279,13 @@ public class ChatServer {
                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))
             ) {
-                // Enviar o histórico
                 for (String line : history) {
                     writer.write(line + "\n");
                 }
-                // Adicionar nova mensagem e deixar IA continuar
                 writer.write("User: " + userMessage + "\n");
                 writer.flush();
                 process.getOutputStream().close();
 
-                // Ler resposta
                 StringBuilder response = new StringBuilder();
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -237,11 +302,10 @@ public class ChatServer {
     private void purgeExpiredSessions() {
         sessionsLock.lock();
         try {
-            Iterator<Map.Entry<String, UserSession>> it = sessions.entrySet().iterator();
             Instant now = Instant.now();
+            Iterator<Map.Entry<String, UserSession>> it = sessions.entrySet().iterator();
             while (it.hasNext()) {
-                UserSession sess = it.next().getValue();
-                if (Duration.between(sess.lastAccess, now).compareTo(SESSION_TTL) > 0) {
+                if (Duration.between(it.next().getValue().lastAccess, now).compareTo(SESSION_TTL) > 0) {
                     it.remove();
                 }
             }
@@ -256,10 +320,10 @@ public class ChatServer {
         String roomName;
         Instant lastAccess;
 
-        UserSession(String t, String u) {
-            token = t;
-            username = u;
-            lastAccess = Instant.now();
+        UserSession(String token, String user) {
+            this.token = token;
+            this.username = user;
+            this.lastAccess = Instant.now();
         }
 
         void touch() {

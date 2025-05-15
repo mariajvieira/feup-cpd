@@ -1,13 +1,13 @@
 import java.io.*;
 import java.net.*;
-import java.util.Scanner;
 import java.time.Duration;
+import java.util.Scanner;
 
 public class ChatClient {
     private static final String TOKEN_FILE = "token.txt";
-    private static final Duration TOKEN_TTL = Duration.ofMinutes(1);
+    private static final Duration TOKEN_TTL = Duration.ofMinutes(15);
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         if (args.length < 2) {
             System.out.println("Usage: java ChatClient <server_address> <port>");
             return;
@@ -16,62 +16,79 @@ public class ChatClient {
         int port = Integer.parseInt(args[1]);
 
         try (Socket socket = new Socket(serverAddress, port);
-             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
-             Scanner scanner = new Scanner(System.in)) {
+             BufferedReader in  = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             PrintWriter    out = new PrintWriter(socket.getOutputStream(), true);
+             Scanner scanner    = new Scanner(System.in)) {
 
-            System.out.println(in.readLine());
+            String welcome = in.readLine();
+            if (welcome == null) return;
+            System.out.println(welcome);
 
-            String savedToken = readToken();
-            if (savedToken != null) {
-                System.out.println("Reconnecting with saved token...");
-                out.println(savedToken);
+            String prompt = in.readLine();
+            if (prompt == null) return;
+            System.out.println(prompt);
+
+            String token = readToken();
+            if (token != null) {
+                System.out.println("Reconnecting automatically...");
+                out.println(token);
             } else {
-                System.out.print("Enter your credentials: ");
-                out.println(scanner.nextLine());
+                String choice = scanner.nextLine().trim();
+                out.println(choice);
             }
 
-            String authResp = in.readLine();
-            System.out.println(authResp);
-            if (savedToken == null && authResp.startsWith("Authentication successful")) {
-                String tok = authResp.substring(authResp.indexOf(':') + 1).trim();
-                saveToken(tok);
-                System.out.println("Token saved for next reconnect.");
+            String line;
+            while ((line = in.readLine()) != null) {
+                System.out.println(line);
+
+                if (line.endsWith(":")) {
+                    out.println(scanner.nextLine());
+                    continue;
+                }
+                if (line.startsWith("Reconnected")) {
+                    break;
+                }
+                if (line.startsWith("Authentication successful")) {
+                    String newToken = line.substring(line.indexOf(':')+1).trim();
+                    saveToken(newToken);
+                    System.out.println("Token saved; automatic reconnect until it expires.");
+                    break;
+                }
+                if (line.contains("failed")) {
+                    System.out.println("Exiting.");
+                    return;
+                }
             }
 
             Thread reader = new Thread(() -> {
                 try {
-                    String resp;
-                    while ((resp = in.readLine()) != null) {
-                        System.out.println(resp);
+                    String msg;
+                    while ((msg = in.readLine()) != null) {
+                        System.out.println(msg);
                     }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+                } catch (IOException ignored) { }
             });
             reader.setDaemon(true);
             reader.start();
 
             while (true) {
                 String msg = scanner.nextLine();
-                out.println(msg);
                 if (msg.equalsIgnoreCase("exit")) {
                     deleteToken();
                     System.out.println("Local token deleted. Bye!");
+                    out.println("exit");
                     break;
                 }
+                out.println(msg);
             }
-
-        } catch (IOException ex) {
-            ex.printStackTrace();
         }
     }
 
     private static String readToken() {
         File f = new File(TOKEN_FILE);
         if (!f.exists()) return null;
-        // expira após TOKEN_TTL
-        if (System.currentTimeMillis() - f.lastModified() > TOKEN_TTL.toMillis()) {
+        long age = System.currentTimeMillis() - f.lastModified();
+        if (age > TOKEN_TTL.toMillis()) {
             f.delete();
             return null;
         }
@@ -85,9 +102,7 @@ public class ChatClient {
     private static void saveToken(String token) {
         try (PrintWriter w = new PrintWriter(new FileWriter(TOKEN_FILE))) {
             w.println(token);
-        } catch (IOException e) {
-            // ignore
-        }
+        } catch (IOException ignored) { }
     }
 
     private static void deleteToken() {
