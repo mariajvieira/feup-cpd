@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.locks.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class ChatServer {
 
@@ -277,14 +279,23 @@ public class ChatServer {
     private static class ClientHandler {
         private final PrintWriter out;
         private final String clientId;
+        private final BlockingQueue<String> queue = new LinkedBlockingQueue<>();
 
         ClientHandler(String clientId, PrintWriter out) {
             this.clientId = clientId;
             this.out = out;
+            Thread.startVirtualThread(() -> {
+                try {
+                    while (true) {
+                        String msg = queue.take();
+                        out.println(msg);
+                    }
+                } catch (InterruptedException ignored) { }
+            });
         }
 
         void send(String message) {
-            out.println(message);
+            queue.offer(message);
         }
     }
 }
