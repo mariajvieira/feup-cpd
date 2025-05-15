@@ -4,14 +4,29 @@ import java.util.*;
 import java.util.concurrent.locks.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.time.Instant;
+import java.time.Duration;
+import java.util.Iterator;
 
 public class ChatServer {
+    private static final Duration SESSION_TTL = Duration.ofMinutes(15);
 
     private final Map<String, UserSession> sessions = new HashMap<>();
     private final Lock sessionsLock = new ReentrantLock();
 
     private final Map<String, ChatRoom> rooms = new HashMap<>();
     private final Lock roomsLock = new ReentrantLock();
+
+    public ChatServer() {
+        Thread.startVirtualThread(() -> {
+            try {
+                while (true) {
+                    Thread.sleep(Duration.ofMinutes(2).toMillis());
+                    purgeExpiredSessions();
+                }
+            } catch (InterruptedException ignored) { }
+        });
+    }
 
     public static void main(String[] args) {
         if (args.length < 1) {
@@ -49,6 +64,7 @@ public class ChatServer {
             sessionsLock.lock();
             try {
                 session = sessions.get(line.trim());
+                if (session != null) session.touch();
             } finally {
                 sessionsLock.unlock();
             }
@@ -218,14 +234,36 @@ public class ChatServer {
         }
     }
 
+    private void purgeExpiredSessions() {
+        sessionsLock.lock();
+        try {
+            Iterator<Map.Entry<String, UserSession>> it = sessions.entrySet().iterator();
+            Instant now = Instant.now();
+            while (it.hasNext()) {
+                UserSession sess = it.next().getValue();
+                if (Duration.between(sess.lastAccess, now).compareTo(SESSION_TTL) > 0) {
+                    it.remove();
+                }
+            }
+        } finally {
+            sessionsLock.unlock();
+        }
+    }
+
     private static class UserSession {
         final String token;
         final String username;
         String roomName;
+        Instant lastAccess;
 
         UserSession(String t, String u) {
             token = t;
             username = u;
+            lastAccess = Instant.now();
+        }
+
+        void touch() {
+            lastAccess = Instant.now();
         }
     }
 

@@ -1,9 +1,11 @@
 import java.io.*;
 import java.net.*;
 import java.util.Scanner;
+import java.time.Duration;
 
 public class ChatClient {
     private static final String TOKEN_FILE = "token.txt";
+    private static final Duration TOKEN_TTL = Duration.ofMinutes(1);
 
     public static void main(String[] args) {
         if (args.length < 2) {
@@ -68,6 +70,11 @@ public class ChatClient {
     private static String readToken() {
         File f = new File(TOKEN_FILE);
         if (!f.exists()) return null;
+        // expira após TOKEN_TTL
+        if (System.currentTimeMillis() - f.lastModified() > TOKEN_TTL.toMillis()) {
+            f.delete();
+            return null;
+        }
         try (BufferedReader r = new BufferedReader(new FileReader(f))) {
             return r.readLine().trim();
         } catch (IOException e) {
