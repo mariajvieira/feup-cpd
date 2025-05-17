@@ -60,54 +60,13 @@ public class ChatClient {
                 }
             }
 
-Thread reader = new Thread(() -> {
+            Thread reader = new Thread(() -> {
                 try {
                     String msg;
                     while ((msg = in.readLine()) != null) {
                         System.out.println(msg);
                     }
-                } catch (IOException e) {
-                    System.out.println("Ligação perdida. A tentar reconectar...");
-
-                    PrintWriter[] outRef = new PrintWriter[1];
-                    BufferedReader[] inRef = new BufferedReader[1];
-                    String newToken = readToken();
-                    Socket newSocket = reconnectToServer(serverAddress, port, newToken, outRef, inRef);
-
-                    if (newSocket == null) {
-                        System.out.println("Falha ao reconectar. Por favor reinicia o cliente.");
-                        return;
-                    }
-
-                    PrintWriter newOut = outRef[0];
-                    BufferedReader newIn = inRef[0];
-
-                    // Nova thread para receber mensagens
-                    Thread newReader = new Thread(() -> {
-                        try {
-                            String msg2;
-                            while ((msg2 = newIn.readLine()) != null) {
-                                System.out.println(msg2);
-                            }
-                        } catch (IOException ex) {
-                            System.out.println("Reconexão falhou novamente.");
-                        }
-                    });
-                    newReader.setDaemon(true);
-                    newReader.start();
-
-                    Scanner scanner2 = new Scanner(System.in);
-                    while (true) {
-                        String msg2 = scanner2.nextLine();
-                        if (msg2.equalsIgnoreCase("exit")) {
-                            deleteToken();
-                            System.out.println("Local token deleted. Bye!");
-                            newOut.println("exit");
-                            break;
-                        }
-                        newOut.println(msg2);
-                    }
-                }
+                } catch (IOException ignored) { }
             });
             reader.setDaemon(true);
             reader.start();
