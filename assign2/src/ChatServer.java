@@ -280,8 +280,10 @@ public class ChatServer {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))
             ) {
                 for (String line : history) {
-                    writer.write(line + "\n");
+                    if (!line.startsWith("Bot:")) {
+                        writer.write("User: " + line.substring(line.indexOf(":") + 1).trim() + "\n");
                 }
+}
                 writer.write("User: " + userMessage + "\n");
                 writer.flush();
                 process.getOutputStream().close();

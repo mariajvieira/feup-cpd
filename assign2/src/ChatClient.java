@@ -60,13 +60,54 @@ public class ChatClient {
                 }
             }
 
-            Thread reader = new Thread(() -> {
+Thread reader = new Thread(() -> {
                 try {
                     String msg;
                     while ((msg = in.readLine()) != null) {
                         System.out.println(msg);
                     }
-                } catch (IOException ignored) { }
+                } catch (IOException e) {
+                    System.out.println("Ligação perdida. A tentar reconectar...");
+
+                    PrintWriter[] outRef = new PrintWriter[1];
+                    BufferedReader[] inRef = new BufferedReader[1];
+                    String newToken = readToken();
+                    Socket newSocket = reconnectToServer(serverAddress, port, newToken, outRef, inRef);
+
+                    if (newSocket == null) {
+                        System.out.println("Falha ao reconectar. Por favor reinicia o cliente.");
+                        return;
+                    }
+
+                    PrintWriter newOut = outRef[0];
+                    BufferedReader newIn = inRef[0];
+
+                    // Nova thread para receber mensagens
+                    Thread newReader = new Thread(() -> {
+                        try {
+                            String msg2;
+                            while ((msg2 = newIn.readLine()) != null) {
+                                System.out.println(msg2);
+                            }
+                        } catch (IOException ex) {
+                            System.out.println("Reconexão falhou novamente.");
+                        }
+                    });
+                    newReader.setDaemon(true);
+                    newReader.start();
+
+                    Scanner scanner2 = new Scanner(System.in);
+                    while (true) {
+                        String msg2 = scanner2.nextLine();
+                        if (msg2.equalsIgnoreCase("exit")) {
+                            deleteToken();
+                            System.out.println("Local token deleted. Bye!");
+                            newOut.println("exit");
+                            break;
+                        }
+                        newOut.println(msg2);
+                    }
+                }
             });
             reader.setDaemon(true);
             reader.start();
@@ -108,4 +149,23 @@ public class ChatClient {
     private static void deleteToken() {
         new File(TOKEN_FILE).delete();
     }
+
+    private static Socket reconnectToServer(String serverAddress, int port, String token, PrintWriter[] outRef, BufferedReader[] inRef) {
+        int attempts = 0;
+        while (attempts < 5) {
+            try {
+                Socket socket = new Socket(serverAddress, port);
+                outRef[0] = new PrintWriter(socket.getOutputStream(), true);
+                inRef[0] = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                outRef[0].println(token); // reenviar token
+                return socket;
+            } catch (IOException e) {
+                System.out.println("Reconnecting... attempt " + (attempts + 1));
+                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
+                attempts++;
+            }
+        }
+        return null;
+    }
+
 }
