@@ -60,7 +60,7 @@ public class ChatClient {
                 }
             }
 
-            Thread reader = new Thread(() -> {
+                       Thread reader = new Thread(() -> {
                 try {
                     String msg;
                     while ((msg = in.readLine()) != null) {

@@ -109,6 +109,7 @@ public class ChatServer {
 
             UserSession session = null;
             sessionsLock.lock();
+            
             try {
                 UserSession s = sessions.get(firstLine.trim());
                 if (s != null
@@ -126,7 +127,7 @@ public class ChatServer {
             if (session != null) {
                 out.println("Reconnected in room: " + session.roomName);
                 joinRoom(session.roomName, session.username, out);
-
+                return;
             } else {
                 String option = firstLine.trim();
                 if (!option.equals("1") && !option.equals("2")) {
