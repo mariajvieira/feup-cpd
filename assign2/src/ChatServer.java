@@ -6,10 +6,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.time.Instant;
 import java.time.Duration;
-import java.util.Iterator;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
 public class ChatServer {
     private static final Duration SESSION_TTL = Duration.ofMinutes(15);
@@ -137,19 +135,34 @@ public class ChatServer {
                 }
 
                 if (option.equals("2")) {
-                    out.println("Choose username:");
-                    username = in.readLine();
-                    out.println("Choose password:");
-                    password = in.readLine();
-                    if (username == null || password == null
-                        || userCredentials.containsKey(username.trim())) {
-                        out.println("Registration failed.");
-                        return;
+                    while (true) {
+                        out.println("Choose username:");
+                        username = in.readLine();
+                        if (username == null) return;
+                        username = username.trim();
+                        usersLock.lock();
+                        try {
+                            if (userCredentials.containsKey(username)) {
+                                out.println("Username already exists. Please choose another.");
+                                continue; // volta a pedir
+                            }
+                        } finally {
+                            usersLock.unlock();
+                        }
+                        
+                        out.println("Choose password:");
+                        password = in.readLine();
+                        if (password == null) return;
+                        password = password.trim();
+                        
+                        saveUser(username, password);
+                        out.println("Registration successful.");
+                        break;
                     }
-                    saveUser(username.trim(), password.trim());
-                    out.println("Registration successful.");
+                    
                     out.println("Login");
                 }
+
 
                 out.println("Username:");
                 username = in.readLine();
