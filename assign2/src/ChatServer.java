@@ -10,6 +10,9 @@ import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 
 public class ChatServer {
+
+    private static final List<String> LLM_COMMAND = getLLMCommand();
+
     private static final Duration SESSION_TTL = Duration.ofMinutes(15);
     private static final File USER_FILE = new File("users.txt");
 
@@ -21,6 +24,16 @@ public class ChatServer {
 
     private final Map<String, String> userCredentials = new HashMap<>();
     private final Lock usersLock = new ReentrantLock();
+
+
+    private static List<String> getLLMCommand() {
+        String cmd = System.getenv("OLLAMA_CMD");
+        if (cmd != null && !cmd.isBlank()) {
+            return Arrays.asList(cmd.trim().split("\\s+"));
+        }
+        return List.of("ollama", "run", "llama2");
+    }
+
 
     public ChatServer() {
         loadUserFile();
@@ -144,7 +157,7 @@ public class ChatServer {
                         try {
                             if (userCredentials.containsKey(username)) {
                                 out.println("Username already exists. Please choose another.");
-                                continue; // volta a pedir
+                                continue; 
                             }
                         } finally {
                             usersLock.unlock();
@@ -239,7 +252,7 @@ public class ChatServer {
                         room.broadcast(userLine);
 
                         if (room.isAiRoom) {
-                            String aiResponse = callLLM(message, room.history);
+                            String aiResponse = callLLM(message, room.history, room.prompt);
                             room.broadcast("Bot: " + aiResponse);
                         }
                     } else {
@@ -284,9 +297,11 @@ public class ChatServer {
         }
     }
 
-    private String callLLM(String userMessage, List<String> history) {
+
+    private String callLLM(String userMessage, List<String> history, String prompt) {
         try {
-            ProcessBuilder builder = new ProcessBuilder("ollama", "run", "llama2");
+            ProcessBuilder builder = new ProcessBuilder(LLM_COMMAND);
+            builder.redirectErrorStream(true);
             Process process = builder.start();
 
             try (
@@ -294,10 +309,14 @@ public class ChatServer {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))
             ) {
                 for (String line : history) {
-                    if (!line.startsWith("Bot:")) {
-                        writer.write("User: " + line.substring(line.indexOf(":") + 1).trim() + "\n");
+                    String msg = line.substring(line.indexOf(':') + 1).trim();
+                    if (line.startsWith("Bot:")) {
+                        writer.write("Bot: " + msg + "\n");
+                    } else {
+                        writer.write("User: " + msg + "\n");
+                    }
                 }
-}
+
                 writer.write("User: " + userMessage + "\n");
                 writer.flush();
                 process.getOutputStream().close();
@@ -307,7 +326,13 @@ public class ChatServer {
                 while ((line = reader.readLine()) != null) {
                     response.append(line).append("\n");
                 }
-                return response.toString().trim();
+
+                String resp = response.toString().trim();
+
+                resp = resp.replaceAll("^```+", "")
+                        .replaceAll("```+$", "")
+                        .trim();
+                return resp;
             }
         } catch (IOException e) {
             e.printStackTrace();

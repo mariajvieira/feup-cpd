@@ -3,7 +3,7 @@
 #### CORRER PROGRAMA: 
 - Server:
 cd assign2
-make server
+OLLAMA_CMD="docker exec -i ollama14 ollama run llama2" make server
 
 - Client 1:
 cd assign2
