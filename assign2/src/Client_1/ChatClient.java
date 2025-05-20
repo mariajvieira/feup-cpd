@@ -4,7 +4,7 @@ import java.time.Duration;
 import java.util.Scanner;
 
 public class ChatClient {
-    private static final String TOKEN_FILE = "token.txt";
+    private static final String TOKEN_FILE = System.getProperty("user.dir") + "/token.txt";
     private static final Duration TOKEN_TTL = Duration.ofMinutes(15);
 
     public static void main(String[] args) throws IOException {
@@ -51,7 +51,6 @@ public class ChatClient {
                 if (line.startsWith("Authentication successful")) {
                     String newToken = line.substring(line.indexOf(':')+1).trim();
                     saveToken(newToken);
-                    System.out.println("Token saved; automatic reconnect until it expires.");
                     break;
                 }
                 if (line.contains("failed")) {
@@ -75,7 +74,7 @@ public class ChatClient {
                 String msg = scanner.nextLine();
                 if (msg.equalsIgnoreCase("exit")) {
                     deleteToken();
-                    System.out.println("Local token deleted. Bye!");
+                    System.out.println("Bye!");
                     out.println("exit");
                     break;
                 }

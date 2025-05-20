@@ -179,7 +179,7 @@ public class ChatServer {
                 sessionsLock.lock();
                 try { sessions.put(token, session); }
                 finally    { sessionsLock.unlock(); }
-                out.println("Authentication successful. Your token: " + token);
+                out.println("Authentication successful!");
 
                 out.println("Available rooms: " + getRoomList());
                 out.println("Enter room name to join or create:");
@@ -277,7 +277,7 @@ public class ChatServer {
                 rooms.put(roomName, room);
             }
             room.addClient(new ClientHandler(clientId, out));
-            room.broadcast(">> " + clientId + " joined the room '" + roomName + "'.");
+            if (roomName!= "exit") room.broadcast(">> " + clientId + " joined the room '" + roomName + "'.");
             return room;
         } finally {
             roomsLock.unlock();

@@ -1,9 +1,14 @@
 ### Assignment 2
 
-#### CORRER PROGRAMA: cd assign2/src
-- Server: 
-- javac -d out ChatServer.java ChatClient.java 
-- java -cp out ChatServer 12345
+#### CORRER PROGRAMA: 
+- Server:
+cd assign2
+make server
 
-- Client: java -cp out ChatClient 127.0.0.1 12345
+- Client 1:
+cd assign2
+make client1
 
+- Client 2:
+cd assign2
+make client2

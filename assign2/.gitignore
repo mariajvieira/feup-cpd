@@ -1,0 +1,7 @@
+
+*.class
+Client_*/token.txt
+**/token.txt
+.DS_Store
+*.log
+*.tmp
