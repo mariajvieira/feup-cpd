@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.time.Duration;
 import java.util.Scanner;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 
 public class ChatClient {
     private static final String RESET = "\u001B[0m";
@@ -118,23 +120,4 @@ public class ChatClient {
     private static void deleteToken() {
         new File(TOKEN_FILE).delete();
     }
-
-    private static Socket reconnectToServer(String serverAddress, int port, String token, PrintWriter[] outRef, BufferedReader[] inRef) {
-        int attempts = 0;
-        while (attempts < 5) {
-            try {
-                Socket socket = new Socket(serverAddress, port);
-                outRef[0] = new PrintWriter(socket.getOutputStream(), true);
-                inRef[0] = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                outRef[0].println(token); // reenviar token
-                return socket;
-            } catch (IOException e) {
-                System.out.println("Reconnecting... attempt " + (attempts + 1));
-                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-                attempts++;
-            }
-        }
-        return null;
-    }
-
 }

@@ -2,12 +2,15 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.locks.*;
+
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+import javax.net.ssl.SSLSocket;
+
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.time.Instant;
 import java.time.Duration;
-import java.security.MessageDigest;
-import java.nio.charset.StandardCharsets;
 
 public class ChatServer {
     private static final String RESET = "\u001B[0m";
@@ -60,20 +63,29 @@ public class ChatServer {
             return;
         }
         int port = Integer.parseInt(args[0]);
-        new ChatServer().start(port);
+        try {
+            new ChatServer().start(port);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println("Failed to start server on port " + port);
+        }
     }
 
-    public void start(int port) {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
-            System.out.println("Chat server started on port " + port);
+    public void start(int port) throws Exception {
+        SSLServerSocket serverSocket = createSSLServerSocket(port);
+        System.out.println("Secure Chat server started on port " + port);
 
-            while (true) {
-                Socket clientSocket = serverSocket.accept();
-                Thread.startVirtualThread(() -> handleClient(clientSocket));
-            }
-        } catch (IOException ex) {
-            ex.printStackTrace();
+        while (true) {
+            SSLSocket clientSocket = (SSLSocket) serverSocket.accept();
+            Thread.startVirtualThread(() -> handleClient(clientSocket));
         }
+    }
+
+    private SSLServerSocket createSSLServerSocket(int port) throws Exception {
+        SSLServerSocketFactory factory = (SSLServerSocketFactory) SSLServerSocketFactory.getDefault();
+        SSLServerSocket serverSocket = (SSLServerSocket) factory.createServerSocket(port);
+
+        return serverSocket;
     }
 
     private void loadUserFile() {
