@@ -2,17 +2,18 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.locks.*;
+
+import javax.net.ssl.SSLServerSocket;
+import javax.net.ssl.SSLServerSocketFactory;
+
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.time.Instant;
 import java.time.Duration;
-import java.security.MessageDigest;
-import java.nio.charset.StandardCharsets;
 
 public class ChatServer {
     private static final String RESET = "\u001B[0m";
     private static final String BOLD = "\u001B[1m";
-    private static final String GREEN = "\u001B[32m";
     private static final String YELLOW = "\u001B[33m";
     private static final String BLUE = "\u001B[34m";
     private static final String PURPLE = "\u001B[35m";
@@ -64,9 +65,13 @@ public class ChatServer {
     }
 
     public void start(int port) {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+        System.setProperty("javax.net.ssl.keyStore", "../src/server_keystore.jks");
+        System.setProperty("javax.net.ssl.keyStorePassword", "senhakey");
+        
+        try (SSLServerSocket serverSocket = (SSLServerSocket) 
+             SSLServerSocketFactory.getDefault().createServerSocket(port)) {
             System.out.println("Chat server started on port " + port);
-
+    
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 Thread.startVirtualThread(() -> handleClient(clientSocket));
@@ -114,6 +119,7 @@ public class ChatServer {
     }
 
     private void handleClient(Socket clientSocket) {
+        UserSession session = null;
         try (
             clientSocket;
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
@@ -121,12 +127,10 @@ public class ChatServer {
         ) {
             out.println(boxText("CHAT SERVER", '=', 50));
             out.println(BOLD + CYAN + "WELCOME TO THE CHAT SERVER!" + RESET);
-            out.println(YELLOW + "Please select an option:" + RESET);
-
+    
             String firstLine = in.readLine();
             if (firstLine == null) return;
-
-            UserSession session = null;
+    
             sessionsLock.lock();
             
             try {
@@ -141,20 +145,20 @@ public class ChatServer {
             } finally {
                 sessionsLock.unlock();
             }
-
+    
             String username, password;
             if (session != null) {
                 out.println("Reconnected in room: " + session.roomName);
                 joinRoom(session.roomName, session.username, out);
-                return;
             } else {
                 String option = firstLine.trim();
                 if (!option.equals("1") && !option.equals("2")) {
+                    out.println(YELLOW + "Please select an option:" + RESET);
                     out.println("1-Login  2-Register:");
                     option = in.readLine();
                     if (option == null) return;
                 }
-
+    
                 if (option.equals("2")) {
                     while (true) {
                         out.println("Choose username:");
@@ -183,8 +187,7 @@ public class ChatServer {
                     
                     out.println("Login");
                 }
-
-
+    
                 out.println("Username:");
                 username = in.readLine();
                 out.println("Password:");
@@ -194,14 +197,14 @@ public class ChatServer {
                     out.println("Authentication failed.");
                     return;
                 }
-
+    
                 String token = UUID.randomUUID().toString();
                 session = new UserSession(token, username.trim());
                 sessionsLock.lock();
                 try { sessions.put(token, session); }
                 finally    { sessionsLock.unlock(); }
                 out.println("Authentication successful. Your token: " + token);
-
+    
                 out.println(boxText("AVAILABLE ROOMS", '-', 40));
                 out.println(CYAN + "Rooms: " + BOLD + getRoomList() + RESET);
                 out.println(YELLOW + "Enter room name to join or create:" + RESET);
@@ -213,11 +216,11 @@ public class ChatServer {
                 session.roomName = roomName.trim();
                 joinRoom(session.roomName, session.username, out);
             }
-
+    
             String message;
             while ((message = in.readLine()) != null) {
                 if (message.isBlank()) continue;
-
+    
                 if (message.equalsIgnoreCase("/rooms")) {
                     out.println(boxText("AVAILABLE ROOMS", '-', 40));
                     out.println(CYAN + "Rooms: " + BOLD + getRoomList() + RESET);
@@ -232,8 +235,8 @@ public class ChatServer {
                     } else {
                         ChatRoom old = rooms.get(session.roomName);
                         if (old != null) {
-                            old.broadcast(">> " + session.username + " has left " + session.roomName);
                             old.removeClient(session.username);
+                            old.broadcast(">> " + session.username + " has left " + session.roomName);
                         }
                         session.roomName = newRoom;
                         joinRoom(newRoom, session.username, out);
@@ -242,10 +245,10 @@ public class ChatServer {
                 else if (message.equalsIgnoreCase("/leave")) {
                     ChatRoom curr = rooms.get(session.roomName);
                     if (curr != null) {
-                        curr.broadcast(">> " + session.username + " has left " + session.roomName);
                         curr.removeClient(session.username);
+                        curr.broadcast(">> " + session.username + " has left " + session.roomName);
                         session.roomName = null;
-                        out.println("You have left the room. Use /join <room> to enter another.");
+                        out.println("You have left the room. Use /join <room> to join (or create) another.");
                     } else {
                         out.println("You are not in any room.");
                     }
@@ -253,8 +256,9 @@ public class ChatServer {
                 else if (message.equalsIgnoreCase("exit")) {
                     ChatRoom room = rooms.get(session.roomName);
                     if (room != null) {
-                        room.broadcast(">> " + session.username + " has disconnected.");
                         room.removeClient(session.username);
+                        room.broadcast(">> " + session.username + " has left " + session.roomName);
+                        session.roomName = null;
                     }
                     break;
                 }
@@ -263,7 +267,7 @@ public class ChatServer {
                     if (room != null) {
                         String userLine = session.username + ": " + message;
                         room.broadcast(userLine);
-
+    
                         if (room.isAiRoom) {
                             String aiResponse = callLLM(message, room.history, room.prompt);
                             room.broadcast("Bot: " + aiResponse);
@@ -275,11 +279,15 @@ public class ChatServer {
             }
         } catch (IOException ex) {
             ex.printStackTrace();
+        } finally {
+            if (session != null && session.roomName != null) {
+                ChatRoom room = rooms.get(session.roomName);
+                if (room != null) {
+                    room.broadcast(">> " + session.username + " has left " + session.roomName);
+                    room.removeClient(session.username);
+                }
+            }
         }
-    }
-
-    private boolean authenticate(String credentials) {
-        return credentials != null && !credentials.isEmpty();
     }
 
     private List<String> getRoomList() {
@@ -303,7 +311,7 @@ public class ChatServer {
                 rooms.put(roomName, room);
             }
             room.addClient(new ClientHandler(clientId, out));
-            if (roomName!= "exit") room.broadcast(">> " + clientId + " joined the room '" + roomName + "'.");
+            if (!"exit".equals(roomName)) room.broadcast(">> " + clientId + " joined the room " + roomName);
             return room;
         } finally {
             roomsLock.unlock();
@@ -440,10 +448,11 @@ public class ChatServer {
     }
 
     private static class ClientHandler {
+        
         private final PrintWriter out;
         private final String clientId;
         private final BlockingQueue<String> queue = new LinkedBlockingQueue<>();
-
+        
         ClientHandler(String clientId, PrintWriter out) {
             this.clientId = clientId;
             this.out = out;

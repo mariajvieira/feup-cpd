@@ -1,16 +1,16 @@
 import java.io.*;
-import java.net.*;
 import java.time.Duration;
 import java.util.Scanner;
+
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
 
 public class ChatClient {
     private static final String RESET = "\u001B[0m";
     private static final String BOLD = "\u001B[1m";
     private static final String GREEN = "\u001B[32m";
     private static final String YELLOW = "\u001B[33m";
-    private static final String BLUE = "\u001B[34m";
-    private static final String PURPLE = "\u001B[35m";
-    private static final String CYAN = "\u001B[36m";
+
     
     private static final String TOKEN_FILE = System.getProperty("user.dir") + "/token.txt";
     private static final Duration TOKEN_TTL = Duration.ofMinutes(15);
@@ -24,7 +24,7 @@ public class ChatClient {
         String serverAddress = args[0];
         int port = Integer.parseInt(args[1]);
 
-        try (Socket socket = new Socket(serverAddress, port);
+        try (SSLSocket socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket(serverAddress, port);
              BufferedReader in  = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              PrintWriter    out = new PrintWriter(socket.getOutputStream(), true);
              Scanner scanner    = new Scanner(System.in)) {
@@ -116,24 +116,6 @@ public class ChatClient {
 
     private static void deleteToken() {
         new File(TOKEN_FILE).delete();
-    }
-
-    private static Socket reconnectToServer(String serverAddress, int port, String token, PrintWriter[] outRef, BufferedReader[] inRef) {
-        int attempts = 0;
-        while (attempts < 5) {
-            try {
-                Socket socket = new Socket(serverAddress, port);
-                outRef[0] = new PrintWriter(socket.getOutputStream(), true);
-                inRef[0] = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                outRef[0].println(token); // reenviar token
-                return socket;
-            } catch (IOException e) {
-                System.out.println("Reconnecting... attempt " + (attempts + 1));
-                try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
-                attempts++;
-            }
-        }
-        return null;
     }
 
 }
