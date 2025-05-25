@@ -10,6 +10,13 @@ import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 
 public class ChatServer {
+    private static final String RESET = "\u001B[0m";
+    private static final String BOLD = "\u001B[1m";
+    private static final String GREEN = "\u001B[32m";
+    private static final String YELLOW = "\u001B[33m";
+    private static final String BLUE = "\u001B[34m";
+    private static final String PURPLE = "\u001B[35m";
+    private static final String CYAN = "\u001B[36m";
 
     private static final List<String> LLM_COMMAND = getLLMCommand();
 
@@ -112,8 +119,9 @@ public class ChatServer {
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
         ) {
-            out.println("Welcome to the chat server!");
-            out.println("1-Login 2-Register:");
+            out.println(boxText("CHAT SERVER", '=', 50));
+            out.println(BOLD + CYAN + "WELCOME TO THE CHAT SERVER!" + RESET);
+            out.println(YELLOW + "Please select an option:" + RESET);
 
             String firstLine = in.readLine();
             if (firstLine == null) return;
@@ -192,10 +200,11 @@ public class ChatServer {
                 sessionsLock.lock();
                 try { sessions.put(token, session); }
                 finally    { sessionsLock.unlock(); }
-                out.println("Authentication successful!");
+                out.println("Authentication successful. Your token: " + token);
 
-                out.println("Available rooms: " + getRoomList());
-                out.println("Enter room name to join or create:");
+                out.println(boxText("AVAILABLE ROOMS", '-', 40));
+                out.println(CYAN + "Rooms: " + BOLD + getRoomList() + RESET);
+                out.println(YELLOW + "Enter room name to join or create:" + RESET);
                 String roomName = in.readLine();
                 if (roomName == null || roomName.isBlank()) {
                     out.println("Invalid room. Disconnecting.");
@@ -210,7 +219,11 @@ public class ChatServer {
                 if (message.isBlank()) continue;
 
                 if (message.equalsIgnoreCase("/rooms")) {
-                    out.println("Available rooms: " + getRoomList());
+                    out.println(boxText("AVAILABLE ROOMS", '-', 40));
+                    out.println(CYAN + "Rooms: " + BOLD + getRoomList() + RESET);
+                }
+                else if (message.equalsIgnoreCase("/help")) {
+                    showHelpMenu(out);
                 }
                 else if (message.toLowerCase().startsWith("/join ")) {
                     String newRoom = message.substring(6).trim();
@@ -405,13 +418,20 @@ public class ChatServer {
         }
 
         void broadcast(String msg) {
+            String formattedMsg = msg;
+            if (msg.startsWith(">>")) {
+                formattedMsg = BLUE + msg + RESET;
+            } else if (msg.startsWith("Bot:")) {
+                formattedMsg = PURPLE + msg + RESET;
+            }
+            
             synchronized (history) {
                 history.add(msg);
             }
             clientsLock.lock();
             try {
                 for (ClientHandler c : clients) {
-                    c.send(msg);
+                    c.send(formattedMsg);
                 }
             } finally {
                 clientsLock.unlock();
@@ -440,5 +460,29 @@ public class ChatServer {
         void send(String message) {
             queue.offer(message);
         }
+    }
+
+    private String boxText(String text, char borderChar, int width) {
+        StringBuilder box = new StringBuilder();
+        String border = String.valueOf(borderChar).repeat(width);
+        
+        box.append(BOLD + PURPLE + border + RESET + "\n");
+        box.append(BOLD + BLUE + " " + text + " " + RESET + "\n");
+        box.append(BOLD + PURPLE + border + RESET);
+        
+        return box.toString();
+    }
+    
+    private void showHelpMenu(PrintWriter out) {
+        out.println(boxText("HELP MENU", '-', 50));
+        out.println(BOLD + "Available Commands:" + RESET);
+        out.println(YELLOW + "/rooms" + RESET + " - Show available rooms");
+        out.println(YELLOW + "/join <roomname>" + RESET + " - Join or create a room");
+        out.println(YELLOW + "/leave" + RESET + " - Leave the current room");
+        out.println(YELLOW + "/help" + RESET + " - Show this help menu");
+        out.println(YELLOW + "exit" + RESET + " - Disconnect from server");
+        out.println(BOLD + "In AI rooms:" + RESET);
+        out.println("Type any message to interact with the AI assistant.");
+        out.println("Create an AI room with name starting with 'AI '");
     }
 }
