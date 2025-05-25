@@ -4,21 +4,12 @@ import java.time.Duration;
 import java.util.Scanner;
 
 public class ChatClient {
-    private static final String RESET = "\u001B[0m";
-    private static final String BOLD = "\u001B[1m";
-    private static final String GREEN = "\u001B[32m";
-    private static final String YELLOW = "\u001B[33m";
-    private static final String BLUE = "\u001B[34m";
-    private static final String PURPLE = "\u001B[35m";
-    private static final String CYAN = "\u001B[36m";
-    
     private static final String TOKEN_FILE = System.getProperty("user.dir") + "/token.txt";
     private static final Duration TOKEN_TTL = Duration.ofMinutes(15);
 
     public static void main(String[] args) throws IOException {
-        
         if (args.length < 2) {
-            System.out.println(YELLOW + "Usage: java ChatClient <server_address> <port>" + RESET);
+            System.out.println("Usage: java ChatClient <server_address> <port>");
             return;
         }
         String serverAddress = args[0];
@@ -80,11 +71,10 @@ public class ChatClient {
             reader.start();
 
             while (true) {
-                System.out.print(BOLD + "> " + RESET);
                 String msg = scanner.nextLine();
                 if (msg.equalsIgnoreCase("exit")) {
                     deleteToken();
-                    System.out.println(GREEN + "Bye!" + RESET);
+                    System.out.println("Bye!");
                     out.println("exit");
                     break;
                 }
